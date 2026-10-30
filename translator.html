@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Numora Translator - English to Urdu</title>
+<style>
+:root { --primary: #6366f1; --primary-dark: #4f46e5; --bg: #f1f5f9; --border: #cbd5e1; --muted: #64748b; }
+* { box-sizing: border-box; }
+body { margin: 0; font-family: "Segoe UI", system-ui, sans-serif; background: var(--bg); color: #1e293b; min-height: 100vh; display: flex; flex-direction: column; }
+header { background: linear-gradient(135deg, #6366f1, #0ea5e9); color: #fff; text-align: center; padding: 26px 16px; }
+header h1 { margin: 0; font-size: 2rem; }
+header p { margin: 6px 0 0; opacity: 0.9; }
+main { max-width: 900px; width: 100%; margin: 24px auto; padding: 0 16px; flex: 1; }
+.card { background: #fff; border-radius: 12px; padding: 24px; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06); }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+label { font-weight: 600; color: var(--primary-dark); display: block; margin-bottom: 8px; }
+textarea { width: 100%; min-height: 200px; padding: 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 1.1rem; resize: vertical; font-family: inherit; }
+textarea:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2); }
+#urOutput { direction: rtl; text-align: right; background: #f8fafc; font-family: "Noto Nastaliq Urdu", "Jameel Noori Nastaleeq", Tahoma, sans-serif; font-size: 1.3rem; line-height: 2.2; }
+.counter { font-size: 0.85rem; color: var(--muted); text-align: right; margin-top: 4px; }
+.actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; justify-content: center; }
+button { background: var(--primary); color: #fff; border: none; padding: 10px 22px; border-radius: 8px; font-size: 1rem; cursor: pointer; }
+button:hover { background: var(--primary-dark); }
+button:disabled { opacity: 0.6; cursor: wait; }
+button.secondary { background: #e2e8f0; color: #1e293b; }
+button.secondary:hover { background: #cbd5e1; }
+#status { text-align: center; color: var(--muted); min-height: 1.4em; margin-top: 12px; }
+#status.error { color: #dc2626; }
+footer { text-align: center; color: var(--muted); font-size: 0.85rem; padding: 16px; }
+@media (max-width: 700px) { .pair { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Numora Translator</h1>
+  <p>English se Urdu mein tarjuma karein</p>
+</header>
+
+<main>
+  <div class="card">
+    <div class="pair">
+      <div>
+        <label for="enText" id="inLabel">English</label>
+        <textarea id="enText" placeholder="Yahan English text likhein..." maxlength="450"></textarea>
+        <div class="counter"><span id="count">0</span>/<span id="maxLen">450</span></div>
+      </div>
+      <div>
+        <label for="urOutput" id="outLabel">Urdu</label>
+        <textarea id="urOutput" readonly placeholder="Urdu tarjuma yahan aayega..."></textarea>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button id="swapLangBtn" class="secondary">⇄ Urdu / English</button>
+      <button id="translateBtn">Translate</button>
+      <button id="copyBtn" class="secondary">Copy Urdu</button>
+      <button id="clearBtn" class="secondary">Clear</button>
+    </div>
+    <p id="status"></p>
+  </div>
+</main>
+
+<footer>Numora Translator &middot; Translation by MyMemory API</footer>
+
+<script>
+const enText = document.getElementById('enText');
+const urOutput = document.getElementById('urOutput');
+const translateBtn = document.getElementById('translateBtn');
+const statusEl = document.getElementById('status');
+const count = document.getElementById('count');
+
+function setStatus(msg, isError = false) {
+  statusEl.textContent = msg;
+  statusEl.className = isError ? 'error' : '';
+}
+
+enText.addEventListener('input', () => {
+  count.textContent = enText.value.length;
+});
+
+async function translate() {
+  const text = enText.value.trim();
+  if (!text) {
+    setStatus('Pehle koi English text likhein.', true);
+    return;
+  }
+
+  translateBtn.disabled = true;
+  setStatus('Tarjuma ho raha hai...');
+
+  try {
+    const url = 'https://api.mymemory.translated.net/get?q=' +
+                encodeURIComponent(text) + '&langpair=' + (isUrduToEn ? 'ur|en' : 'en|ur');
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('Server error ' + res.status);
+
+    const data = await res.json();
+    if (Number(data.responseStatus) !== 200) {
+      throw new Error(data.responseDetails || 'Tarjuma nahi ho saka.');
+    }
+
+    urOutput.value = data.responseData.translatedText;
+    setStatus('Tarjuma mukammal hua.');
+  } catch (err) {
+    setStatus('Ghalti: ' + err.message + '. Internet connection check karein.', true);
+  } finally {
+    translateBtn.disabled = false;
+  }
+}
+
+let isUrduToEn = false;
+const inLabel = document.getElementById('inLabel');
+const outLabel = document.getElementById('outLabel');
+const maxLen = document.getElementById('maxLen');
+const URDU_FONT = '"Noto Nastaliq Urdu", "Jameel Noori Nastaleeq", Tahoma, sans-serif';
+
+document.getElementById('swapLangBtn').addEventListener('click', () => {
+  isUrduToEn = !isUrduToEn;
+
+  inLabel.textContent = isUrduToEn ? 'Urdu' : 'English';
+  outLabel.textContent = isUrduToEn ? 'English' : 'Urdu';
+  enText.placeholder = isUrduToEn ? 'Yahan Urdu text likhein...' : 'Yahan English text likhein...';
+  urOutput.placeholder = isUrduToEn ? 'English tarjuma yahan aayega...' : 'Urdu tarjuma yahan aayega...';
+
+  enText.style.direction = isUrduToEn ? 'rtl' : 'ltr';
+  enText.style.textAlign = isUrduToEn ? 'right' : 'left';
+  enText.style.fontFamily = isUrduToEn ? URDU_FONT : '';
+
+  urOutput.style.direction = isUrduToEn ? 'ltr' : '';
+  urOutput.style.textAlign = isUrduToEn ? 'left' : '';
+  urOutput.style.fontFamily = isUrduToEn ? 'inherit' : '';
+
+  // Keep the Urdu limit lower, since Urdu characters take more bytes
+  enText.maxLength = isUrduToEn ? 200 : 450;
+  maxLen.textContent = enText.maxLength;
+
+  // Use the translation as the new input
+  if (urOutput.value) {
+    enText.value = urOutput.value;
+    urOutput.value = '';
+  }
+  count.textContent = enText.value.length;
+  setStatus('');
+});
+
+translateBtn.addEventListener('click', translate);
+
+enText.addEventListener('keydown', e => {
+  if (e.ctrlKey && e.key === 'Enter') translate();
+});
+
+document.getElementById('copyBtn').addEventListener('click', async () => {
+  if (!urOutput.value) {
+    setStatus('Copy karne ke liye pehle tarjuma karein.', true);
+    return;
+  }
+  await navigator.clipboard.writeText(urOutput.value);
+  setStatus('Urdu tarjuma copy ho gaya.');
+});
+
+document.getElementById('clearBtn').addEventListener('click', () => {
+  enText.value = '';
+  urOutput.value = '';
+  count.textContent = '0';
+  setStatus('');
+  enText.focus();
+});
+</script>
+</body>
+</html>
